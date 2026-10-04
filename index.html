@@ -416,35 +416,30 @@
     .col-vm { width: 18%; text-align: right; }
     .col-del { width: 5%; text-align: center; }
 
-    /* Footer Stats & Totals Bar */
-    .summary-card {
-      background: #ffffff;
-      border: 1px solid var(--border-subtle);
-      border-radius: var(--radius-lg);
-      padding: 14px 18px;
-      box-shadow: var(--shadow-sm);
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: space-between;
-      gap: 14px;
+    /* Footer Totals inside Table */
+    tfoot {
+      background: #f8fafc;
+      border-top: 2px solid var(--border-subtle);
     }
 
-    .stat-pill-group {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 12px;
+    tfoot td {
+      padding: 10px 13px;
+      vertical-align: middle;
     }
 
-    .stat-pill {
-      display: flex;
+    .tfoot-trees-cell {
+      padding-left: 13px;
+    }
+
+    .stat-pill-inline {
+      display: inline-flex;
       align-items: center;
       gap: 8px;
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
       padding: 6px 12px;
       border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
     }
 
     .stat-pill-label {
@@ -460,6 +455,42 @@
       font-weight: 700;
       font-size: 0.92rem;
       color: var(--text-main);
+    }
+
+    .tfoot-vol-cell {
+      text-align: right;
+      padding: 8px 10px;
+    }
+
+    .stat-pill-vol {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      background: #ffffff;
+      border: 1px solid var(--border-subtle);
+      padding: 5px 10px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      min-width: 95px;
+    }
+
+    .stat-pill-vol.sky {
+      border-color: #bae6fd;
+      background: #f0f9ff;
+    }
+
+    .stat-pill-vol.emerald {
+      border-color: #a7f3d0;
+      background: #ecfdf5;
+    }
+
+    .stat-pill-vol-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
     .stat-pill-value.accent-sky { color: var(--sky); }
@@ -622,28 +653,30 @@
         <tbody id="tableBody">
           <!-- Rows injected by JavaScript -->
         </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="tfoot-trees-cell">
+              <div class="stat-pill-inline">
+                <span class="stat-pill-label">Trees Recorded</span>
+                <span class="stat-pill-value" id="totalTreesCount">0</span>
+              </div>
+            </td>
+            <td class="tfoot-vol-cell">
+              <div class="stat-pill-vol sky">
+                <span class="stat-pill-vol-label">Total ft³</span>
+                <span class="stat-pill-value accent-sky" id="totalVolumeFt">0.00 ft³</span>
+              </div>
+            </td>
+            <td class="tfoot-vol-cell">
+              <div class="stat-pill-vol emerald">
+                <span class="stat-pill-vol-label">Total m³</span>
+                <span class="stat-pill-value accent-emerald" id="totalVolumeM">0.00 m³</span>
+              </div>
+            </td>
+            <td class="col-del"></td>
+          </tr>
+        </tfoot>
       </table>
-    </div>
-  </div>
-
-  <!-- Summary Card (Totals) -->
-  <div class="summary-card">
-    <div class="stat-pill-group">
-      <div class="stat-pill">
-        <span class="stat-pill-label">Trees Recorded</span>
-        <span class="stat-pill-value" id="totalTreesCount">0</span>
-      </div>
-      <div class="stat-pill">
-        <span class="stat-pill-label">Total ft³</span>
-        <span class="stat-pill-value accent-sky" id="totalVolumeFt">0.00 ft³</span>
-      </div>
-      <div class="stat-pill">
-        <span class="stat-pill-label">Total m³</span>
-        <span class="stat-pill-value accent-emerald" id="totalVolumeM">0.00 m³</span>
-      </div>
-    </div>
-    <div style="font-size: 0.72rem; color: var(--text-subtle);">
-      Auto-saved locally • Works 100% offline
     </div>
   </div>
 
