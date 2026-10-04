@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tvc-cache-v2';
+const CACHE_NAME = 'tvc-cache-v5';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -7,7 +7,7 @@ const ASSETS_TO_CACHE = [
   './icon-512.png'
 ];
 
-// Install — cache core assets
+// Install: pre-cache assets & activate immediately
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
@@ -17,7 +17,7 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Activate — clean up old caches
+// Activate: clean up ALL old caches and take control
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys => {
@@ -30,28 +30,41 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// Fetch — serve from cache first, fall back to network
+// Fetch: Network-First for HTML/navigation so phone always gets latest code immediately
 self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+
+  const isNavigate = event.request.mode === 'navigate' || event.request.destination === 'document';
+
+  if (isNavigate) {
+    event.respondWith(
+      fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match('./index.html') || caches.match(event.request);
+        })
+    );
+    return;
+  }
+
+  // Stale-While-Revalidate for icons and static assets
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then(networkResponse => {
-        // Cache successful GET responses for future offline use
-        if (event.request.method === 'GET' && networkResponse.status === 200) {
-          const responseClone = networkResponse.clone();
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, responseClone);
-          });
+      const fetchPromise = fetch(event.request).then(networkResponse => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return networkResponse;
-      });
-    }).catch(() => {
-      // If both cache and network fail, return a basic offline page
-      if (event.request.mode === 'navigate') {
-        return caches.match('./index.html');
-      }
+      }).catch(() => cachedResponse);
+
+      return cachedResponse || fetchPromise;
     })
   );
 });
