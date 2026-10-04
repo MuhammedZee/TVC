@@ -64,6 +64,68 @@
       background: #e9ecef;
     }
 
+    /* Unit toggle group in toolbar */
+    .unit-control-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #e9ecef;
+      padding: 3px 6px;
+      border-radius: 6px;
+    }
+
+    .unit-control-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #495057;
+      margin-right: 2px;
+      padding-left: 4px;
+    }
+
+    .unit-pill-btn {
+      padding: 5px 12px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+      background: #fff;
+      color: #495057;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: all 0.15s ease;
+    }
+
+    .unit-pill-btn:hover {
+      background: #f8f9fa;
+    }
+
+    .unit-pill-btn.active {
+      background: #2e7d32;
+      color: #fff;
+      border-color: #2e7d32;
+      box-shadow: 0 1px 3px rgba(46, 125, 50, 0.3);
+    }
+
+    /* Column Header Unit Select Dropdown */
+    .unit-select {
+      background: #495057;
+      color: #fff;
+      border: 1px solid #6c757d;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+      margin-left: 5px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .unit-select:focus,
+    .unit-select:hover {
+      border-color: #74c0fc;
+      background: #3b4249;
+    }
+
     .table-wrap {
       overflow-x: auto;
       background: #fff;
@@ -229,9 +291,14 @@
 <body>
 
   <h1>🌲 Tree Volume Calculator</h1>
-  <p class="subtitle">Volume (ft³) = (Width² × Height) ÷ 16 &nbsp;|&nbsp; Volume (m³) = Volume (ft³) × 35.3147</p>
+  <p class="subtitle" id="calcFormulaSubtitle">Volume (ft³) = (Width² × Height) ÷ 16 &nbsp;|&nbsp; Volume (m³) = Volume (ft³) ÷ 35.3147</p>
 
   <div class="toolbar">
+    <div class="unit-control-wrap">
+      <span class="unit-control-label">Units:</span>
+      <button type="button" class="unit-pill-btn active" id="btnAllFt" onclick="setUnits('ft', 'ft')" title="Set both width and height to feet">Feet (ft)</button>
+      <button type="button" class="unit-pill-btn" id="btnAllM" onclick="setUnits('m', 'm')" title="Set both width and height to meters">Meters (m)</button>
+    </div>
     <button onclick="exportCSV()">📄 Export CSV</button>
     <button onclick="exportExcel()">📊 Export Excel</button>
     <button onclick="window.print()">🖨️ Print</button>
@@ -244,8 +311,20 @@
         <tr>
           <th class="col-sl">Sl.No</th>
           <th class="col-name">Name</th>
-          <th class="col-w">Width (ft)</th>
-          <th class="col-h">Height (ft)</th>
+          <th class="col-w">
+            Width
+            <select id="selWidthUnit" class="unit-select" onchange="onUnitChange()" title="Change width unit">
+              <option value="ft" selected>ft</option>
+              <option value="m">m</option>
+            </select>
+          </th>
+          <th class="col-h">
+            Height
+            <select id="selHeightUnit" class="unit-select" onchange="onUnitChange()" title="Change height unit">
+              <option value="ft" selected>ft</option>
+              <option value="m">m</option>
+            </select>
+          </th>
           <th class="col-vft">Volume (ft³)</th>
           <th class="col-vm">Volume (m³)</th>
           <th class="col-del"></th>
@@ -307,7 +386,8 @@
       inW.placeholder = '0';
       inW.min = '0';
       inW.step = 'any';
-      inW.setAttribute('aria-label', 'Width in feet');
+      const curUnitW = document.getElementById('selWidthUnit') ? document.getElementById('selWidthUnit').value : 'ft';
+      inW.setAttribute('aria-label', 'Width in ' + (curUnitW === 'm' ? 'meters' : 'feet'));
       inW.addEventListener('input', handleRowInput);
       if (data && data.w) inW.value = data.w;
       tdW.appendChild(inW);
@@ -321,7 +401,8 @@
       inH.placeholder = '0';
       inH.min = '0';
       inH.step = 'any';
-      inH.setAttribute('aria-label', 'Height in feet');
+      const curUnitH = document.getElementById('selHeightUnit') ? document.getElementById('selHeightUnit').value : 'ft';
+      inH.setAttribute('aria-label', 'Height in ' + (curUnitH === 'm' ? 'meters' : 'feet'));
       inH.addEventListener('input', handleRowInput);
       if (data && data.h) inH.value = data.h;
       tdH.appendChild(inH);
@@ -387,8 +468,9 @@
     }
 
     /* Calculate volume for a single row:
-       ft³ = (W² × H) / 16
-       m³  = ft³ × 35.3147 */
+       - If both in meters: (W² × H) / 16 = m³, ft³ = m³ × 35.3147
+       - If both in feet:   (W² × H) / 16 = ft³, m³ = ft³ ÷ 35.3147
+       - If mixed: converted accurately */
     function calcVolume(row) {
       const inputs = row.querySelectorAll('input');
       const w = parseFloat(inputs[2].value);
@@ -397,18 +479,87 @@
       const volMCell = row.querySelector('.vol-cell-final');
 
       if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
-        const volFt = (w * w * h) / 16;
-        const volM = volFt * CONVERSION_FACTOR;
+        const unitW = document.getElementById('selWidthUnit') ? document.getElementById('selWidthUnit').value : 'ft';
+        const unitH = document.getElementById('selHeightUnit') ? document.getElementById('selHeightUnit').value : 'ft';
+
+        let volFt, volM;
+        if (unitW === 'm' && unitH === 'm') {
+          volM = (w * w * h) / 16;
+          volFt = volM * CONVERSION_FACTOR;
+        } else if (unitW === 'ft' && unitH === 'ft') {
+          volFt = (w * w * h) / 16;
+          volM = volFt / CONVERSION_FACTOR;
+        } else {
+          // Convert feet measurements to meters for unified calculation
+          const wInM = (unitW === 'ft') ? (w / 3.2808399) : w;
+          const hInM = (unitH === 'ft') ? (h / 3.2808399) : h;
+          volM = (wInM * wInM * hInM) / 16;
+          volFt = volM * CONVERSION_FACTOR;
+        }
+
         volFtCell.textContent = volFt.toFixed(4);
         volMCell.textContent = volM.toFixed(4);
         row.dataset.volumeFt = volFt;
-        row.dataset.volume = volM; // store raw value to avoid float drift
+        row.dataset.volume = volM;
       } else {
         volFtCell.textContent = '';
         volMCell.textContent = '';
         delete row.dataset.volumeFt;
         delete row.dataset.volume;
       }
+    }
+
+    /* Update Subtitle description to match current units */
+    function updateSubtitle() {
+      const unitW = document.getElementById('selWidthUnit') ? document.getElementById('selWidthUnit').value : 'ft';
+      const unitH = document.getElementById('selHeightUnit') ? document.getElementById('selHeightUnit').value : 'ft';
+      const sub = document.getElementById('calcFormulaSubtitle');
+      if (!sub) return;
+
+      if (unitW === 'm' && unitH === 'm') {
+        sub.innerHTML = 'Width &amp; Height in <strong>meters (m)</strong> &nbsp;|&nbsp; Volume (m³) = (Width² × Height) ÷ 16 &nbsp;|&nbsp; Volume (ft³) = Volume (m³) × 35.3147';
+      } else if (unitW === 'ft' && unitH === 'ft') {
+        sub.innerHTML = 'Width &amp; Height in <strong>feet (ft)</strong> &nbsp;|&nbsp; Volume (ft³) = (Width² × Height) ÷ 16 &nbsp;|&nbsp; Volume (m³) = Volume (ft³) ÷ 35.3147';
+      } else {
+        sub.innerHTML = `Width in <strong>${unitW}</strong>, Height in <strong>${unitH}</strong> &nbsp;|&nbsp; Auto-calculated Volume (ft³) &amp; Volume (m³)`;
+      }
+    }
+
+    /* Handler when unit dropdown changes */
+    function onUnitChange() {
+      const unitW = document.getElementById('selWidthUnit').value;
+      const unitH = document.getElementById('selHeightUnit').value;
+
+      // Update pill active classes
+      const btnFt = document.getElementById('btnAllFt');
+      const btnM = document.getElementById('btnAllM');
+      if (btnFt && btnM) {
+        btnFt.classList.toggle('active', unitW === 'ft' && unitH === 'ft');
+        btnM.classList.toggle('active', unitW === 'm' && unitH === 'm');
+      }
+
+      // Recalculate all existing rows
+      const rows = tbody.querySelectorAll('tr');
+      rows.forEach(row => {
+        const inputs = row.querySelectorAll('input');
+        if (inputs.length >= 4) {
+          inputs[2].setAttribute('aria-label', 'Width in ' + (unitW === 'm' ? 'meters' : 'feet'));
+          inputs[3].setAttribute('aria-label', 'Height in ' + (unitH === 'm' ? 'meters' : 'feet'));
+          calcVolume(row);
+        }
+      });
+
+      updateTotals();
+      updateSubtitle();
+      localStorage.setItem('tvc_unit_w', unitW);
+      localStorage.setItem('tvc_unit_h', unitH);
+    }
+
+    /* Quick preset buttons in toolbar */
+    function setUnits(wUnit, hUnit) {
+      document.getElementById('selWidthUnit').value = wUnit;
+      document.getElementById('selHeightUnit').value = hUnit;
+      onUnitChange();
     }
 
     /* Update Total Trees and Total Volume in the footer */
@@ -460,6 +611,16 @@
     }
 
     function loadData() {
+      const savedW = localStorage.getItem('tvc_unit_w');
+      const savedH = localStorage.getItem('tvc_unit_h');
+      if (savedW && document.getElementById('selWidthUnit')) {
+        document.getElementById('selWidthUnit').value = savedW;
+      }
+      if (savedH && document.getElementById('selHeightUnit')) {
+        document.getElementById('selHeightUnit').value = savedH;
+      }
+      onUnitChange();
+
       try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved) {
@@ -508,7 +669,9 @@
     }
 
     function exportCSV() {
-      const header = ['Sl.No', 'Name', 'Width (ft)', 'Height (ft)', 'Volume (ft³)', 'Volume (m³)'];
+      const unitW = document.getElementById('selWidthUnit') ? document.getElementById('selWidthUnit').value : 'ft';
+      const unitH = document.getElementById('selHeightUnit') ? document.getElementById('selHeightUnit').value : 'ft';
+      const header = ['Sl.No', 'Name', `Width (${unitW})`, `Height (${unitH})`, 'Volume (ft³)', 'Volume (m³)'];
       const rows = getExportRows();
       if (rows.length === 0) { alert('No data to export.'); return; }
 
@@ -523,13 +686,16 @@
        EXPORT: Excel (.xls via HTML table)
        ------------------------------------------------------- */
     function exportExcel() {
+      const unitW = document.getElementById('selWidthUnit') ? document.getElementById('selWidthUnit').value : 'ft';
+      const unitH = document.getElementById('selHeightUnit') ? document.getElementById('selHeightUnit').value : 'ft';
+      const header = ['Sl.No', 'Name', `Width (${unitW})`, `Height (${unitH})`, 'Volume (ft³)', 'Volume (m³)'];
       const rows = getExportRows();
       if (rows.length === 0) { alert('No data to export.'); return; }
 
       let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
       html += '<head><meta charset="UTF-8"></head><body>';
       html += '<table border="1"><thead><tr>';
-      html += '<th>Sl.No</th><th>Name</th><th>Width (ft)</th><th>Height (ft)</th><th>Volume (ft³)</th><th>Volume (m³)</th>';
+      header.forEach(h => { html += '<th>' + escapeHtml(h) + '</th>'; });
       html += '</tr></thead><tbody>';
       rows.forEach(r => {
         html += '<tr>' + r.map(c => '<td>' + escapeHtml(c) + '</td>').join('') + '</tr>';
