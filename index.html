@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Calculate tree volumes using width and height measurements. Export to CSV, Excel, or PDF.">
+  <meta name="theme-color" content="#343a40">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-512.jpg">
+  <title>Tree Volume Calculator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f4f6f8;
+      color: #222;
+      padding: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 6px;
+      font-size: 1.5rem;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #666;
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar button {
+      padding: 8px 18px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background: #fff;
+      cursor: pointer;
+      font-size: 0.85rem;
+      transition: background 0.15s;
+    }
+
+    .toolbar button:hover {
+      background: #e9ecef;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 750px;
+    }
+
+    thead th {
+      background: #343a40;
+      color: #fff;
+      padding: 10px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 0.85rem;
+      position: sticky;
+      top: 0;
+    }
+
+    tbody td {
+      padding: 0;
+      border-bottom: 1px solid #e9ecef;
+    }
+
+    tbody td input {
+      width: 100%;
+      border: none;
+      outline: none;
+      padding: 9px 12px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      background: transparent;
+    }
+
+    tbody td input:focus {
+      background: #fffde7;
+    }
+
+    /* Read-only volume cells */
+    tbody td.vol-cell {
+      padding: 9px 12px;
+      font-size: 0.9rem;
+      color: #1565c0;
+      font-weight: 500;
+    }
+
+    tbody td.vol-cell-final {
+      padding: 9px 12px;
+      font-size: 0.9rem;
+      color: #2e7d32;
+      font-weight: 500;
+    }
+
+    /* Delete button cell */
+    tbody td.del-cell {
+      text-align: center;
+      padding: 0;
+      width: 40px;
+    }
+
+    tbody td.del-cell button {
+      background: none;
+      border: none;
+      color: #d32f2f;
+      font-size: 1.1rem;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 4px;
+      transition: background 0.15s;
+      line-height: 1;
+    }
+
+    tbody td.del-cell button:hover {
+      background: #ffebee;
+    }
+
+    /* Column widths */
+    .col-sl {
+      width: 8%;
+    }
+
+    .col-name {
+      width: 22%;
+    }
+
+    .col-w {
+      width: 14%;
+    }
+
+    .col-h {
+      width: 14%;
+    }
+
+    .col-vft {
+      width: 17%;
+    }
+
+    .col-vm {
+      width: 19%;
+    }
+
+    .col-del {
+      width: 6%;
+    }
+
+    /* Numeric inputs align right */
+    .num-input {
+      text-align: right;
+    }
+
+    /* Footer totals */
+    tfoot td {
+      padding: 10px 12px;
+      font-weight: 600;
+      font-size: 0.9rem;
+      background: #f8f9fa;
+      border-top: 2px solid #dee2e6;
+    }
+
+    /* ---- Print styles ---- */
+    @media print {
+      body {
+        padding: 0;
+        background: #fff;
+      }
+
+      .toolbar {
+        display: none;
+      }
+
+      .subtitle {
+        display: none;
+      }
+
+      .table-wrap {
+        box-shadow: none;
+      }
+
+      thead th {
+        background: #555;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+
+      tbody td input {
+        padding: 6px 8px;
+      }
+
+      /* Hide delete column when printing */
+      .col-del,
+      .del-cell {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>🌲 Tree Volume Calculator</h1>
+  <p class="subtitle">Volume (ft³) = (Width² × Height) ÷ 16 &nbsp;|&nbsp; Volume (m³) = Volume (ft³) × 35.3147</p>
+
+  <div class="toolbar">
+    <button onclick="exportCSV()">📄 Export CSV</button>
+    <button onclick="exportExcel()">📊 Export Excel</button>
+    <button onclick="window.print()">🖨️ Print</button>
+    <button onclick="clearAll()">🗑️ Clear All</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th class="col-sl">Sl.No</th>
+          <th class="col-name">Name</th>
+          <th class="col-w">Width (ft)</th>
+          <th class="col-h">Height (ft)</th>
+          <th class="col-vft">Volume (ft³)</th>
+          <th class="col-vm">Volume (m³)</th>
+          <th class="col-del"></th>
+        </tr>
+      </thead>
+      <tbody id="tableBody">
+        <!-- Rows are created by JS -->
+      </tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" id="totalTrees">Total Trees: 0</td>
+          <td colspan="4" id="totalVolume" style="text-align:right;">Total Volume: 0.00 m³</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <script>
+    const CONVERSION_FACTOR = 35.3147; // cubic feet to cubic meters
+    const STORAGE_KEY = 'tvc_tree_data';
+    const tbody = document.getElementById('tableBody');
+
+    /* -------------------------------------------------------
+       AUTO-ROW LOGIC
+       - The table always ends with one empty row.
+       - When the user types anything into the last row,
+         a new empty row is appended automatically.
+       ------------------------------------------------------- */
+    function createRow(data) {
+      const tr = document.createElement('tr');
+
+      // Sl.No
+      const tdSl = document.createElement('td');
+      const inSl = document.createElement('input');
+      inSl.type = 'text';
+      inSl.placeholder = 'e.g. 1A';
+      inSl.setAttribute('aria-label', 'Serial number');
+      inSl.addEventListener('input', handleRowInput);
+      if (data && data.sl) inSl.value = data.sl;
+      tdSl.appendChild(inSl);
+      tr.appendChild(tdSl);
+
+      // Name
+      const tdName = document.createElement('td');
+      const inName = document.createElement('input');
+      inName.type = 'text';
+      inName.placeholder = 'Tree name';
+      inName.setAttribute('aria-label', 'Tree name');
+      inName.addEventListener('input', handleRowInput);
+      if (data && data.name) inName.value = data.name;
+      tdName.appendChild(inName);
+      tr.appendChild(tdName);
+
+      // Width
+      const tdW = document.createElement('td');
+      const inW = document.createElement('input');
+      inW.type = 'number';
+      inW.className = 'num-input';
+      inW.placeholder = '0';
+      inW.min = '0';
+      inW.step = 'any';
+      inW.setAttribute('aria-label', 'Width in feet');
+      inW.addEventListener('input', handleRowInput);
+      if (data && data.w) inW.value = data.w;
+      tdW.appendChild(inW);
+      tr.appendChild(tdW);
+
+      // Height
+      const tdH = document.createElement('td');
+      const inH = document.createElement('input');
+      inH.type = 'number';
+      inH.className = 'num-input';
+      inH.placeholder = '0';
+      inH.min = '0';
+      inH.step = 'any';
+      inH.setAttribute('aria-label', 'Height in feet');
+      inH.addEventListener('input', handleRowInput);
+      if (data && data.h) inH.value = data.h;
+      tdH.appendChild(inH);
+      tr.appendChild(tdH);
+
+      // Volume ft³ (read-only)
+      const tdVft = document.createElement('td');
+      tdVft.className = 'vol-cell';
+      tr.appendChild(tdVft);
+
+      // Volume m³ (read-only)
+      const tdVm = document.createElement('td');
+      tdVm.className = 'vol-cell-final';
+      tr.appendChild(tdVm);
+
+      // Delete button
+      const tdDel = document.createElement('td');
+      tdDel.className = 'del-cell';
+      const delBtn = document.createElement('button');
+      delBtn.textContent = '✕';
+      delBtn.title = 'Delete row';
+      delBtn.setAttribute('aria-label', 'Delete this row');
+      delBtn.addEventListener('click', function () {
+        // Don't delete the sentinel (last) row
+        if (tr === tbody.lastElementChild) return;
+        tr.remove();
+        updateTotals();
+        saveData();
+      });
+      tdDel.appendChild(delBtn);
+      tr.appendChild(tdDel);
+
+      tbody.appendChild(tr);
+
+      // Calculate volume if loading saved data
+      if (data) calcVolume(tr);
+
+      return tr;
+    }
+
+    /* Central handler for every input event in any row */
+    function handleRowInput(e) {
+      const row = e.target.closest('tr');
+
+      // Clamp negative numbers for numeric inputs
+      if (e.target.type === 'number' && parseFloat(e.target.value) < 0) {
+        e.target.value = 0;
+      }
+
+      // 1. Recalculate volume for this row
+      calcVolume(row);
+
+      // 2. If the user typed in the last row, add a new empty row
+      if (row === tbody.lastElementChild) {
+        createRow();
+      }
+
+      // 3. Update footer totals
+      updateTotals();
+
+      // 4. Save to localStorage
+      saveData();
+    }
+
+    /* Calculate volume for a single row:
+       ft³ = (W² × H) / 16
+       m³  = ft³ × 35.3147 */
+    function calcVolume(row) {
+      const inputs = row.querySelectorAll('input');
+      const w = parseFloat(inputs[2].value);
+      const h = parseFloat(inputs[3].value);
+      const volFtCell = row.querySelector('.vol-cell');
+      const volMCell = row.querySelector('.vol-cell-final');
+
+      if (!isNaN(w) && !isNaN(h) && w > 0 && h > 0) {
+        const volFt = (w * w * h) / 16;
+        const volM = volFt * CONVERSION_FACTOR;
+        volFtCell.textContent = volFt.toFixed(4);
+        volMCell.textContent = volM.toFixed(4);
+        row.dataset.volumeFt = volFt;
+        row.dataset.volume = volM; // store raw value to avoid float drift
+      } else {
+        volFtCell.textContent = '';
+        volMCell.textContent = '';
+        delete row.dataset.volumeFt;
+        delete row.dataset.volume;
+      }
+    }
+
+    /* Update Total Trees and Total Volume in the footer */
+    function updateTotals() {
+      const rows = tbody.querySelectorAll('tr');
+      let treeCount = 0;
+      let volumeFtSum = 0;
+      let volumeMSum = 0;
+
+      rows.forEach((row, i) => {
+        // Skip the last row (always empty sentinel)
+        if (i === rows.length - 1) return;
+
+        const sl = row.querySelectorAll('input')[0].value.trim();
+        if (sl !== '') treeCount++;
+
+        // Use raw numeric values instead of re-parsing text
+        if (row.dataset.volumeFt) {
+          volumeFtSum += parseFloat(row.dataset.volumeFt);
+        }
+        if (row.dataset.volume) {
+          volumeMSum += parseFloat(row.dataset.volume);
+        }
+      });
+
+      document.getElementById('totalTrees').textContent = 'Total Trees: ' + treeCount;
+      document.getElementById('totalVolume').textContent =
+        'Total: ' + volumeFtSum.toFixed(2) + ' ft\u00B3 | ' + volumeMSum.toFixed(2) + ' m\u00B3';
+    }
+
+    /* -------------------------------------------------------
+       LOCAL STORAGE: Save & Load
+       ------------------------------------------------------- */
+    function saveData() {
+      const rows = tbody.querySelectorAll('tr');
+      const data = [];
+      rows.forEach((row, i) => {
+        if (i === rows.length - 1) return; // skip sentinel
+        const inputs = row.querySelectorAll('input');
+        const sl = inputs[0].value;
+        const name = inputs[1].value;
+        const w = inputs[2].value;
+        const h = inputs[3].value;
+        if (sl || name || w || h) {
+          data.push({ sl, name, w, h });
+        }
+      });
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    function loadData() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+          const data = JSON.parse(saved);
+          if (Array.isArray(data) && data.length > 0) {
+            data.forEach(d => createRow(d));
+          }
+        }
+      } catch (e) {
+        // Ignore corrupt data
+      }
+      // Always end with one empty sentinel row
+      createRow();
+      updateTotals();
+    }
+
+    function clearAll() {
+      if (!confirm('Clear all data? This cannot be undone.')) return;
+      localStorage.removeItem(STORAGE_KEY);
+      tbody.innerHTML = '';
+      createRow();
+      updateTotals();
+    }
+
+    /* -------------------------------------------------------
+       EXPORT: CSV
+       ------------------------------------------------------- */
+    function getExportRows() {
+      const rows = tbody.querySelectorAll('tr');
+      const data = [];
+      rows.forEach((row, i) => {
+        if (i === rows.length - 1) return; // skip empty last row
+        const inputs = row.querySelectorAll('input');
+        const sl = inputs[0].value.trim();
+        const name = inputs[1].value.trim();
+        const w = inputs[2].value.trim();
+        const h = inputs[3].value.trim();
+        const volFt = row.querySelector('.vol-cell').textContent.trim();
+        const volM = row.querySelector('.vol-cell-final').textContent.trim();
+        // Include row if it has any data
+        if (sl || name || w || h || volFt || volM) {
+          data.push([sl, name, w, h, volFt, volM]);
+        }
+      });
+      return data;
+    }
+
+    function exportCSV() {
+      const header = ['Sl.No', 'Name', 'Width (ft)', 'Height (ft)', 'Volume (ft³)', 'Volume (m³)'];
+      const rows = getExportRows();
+      if (rows.length === 0) { alert('No data to export.'); return; }
+
+      const csvContent = [header, ...rows]
+        .map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(','))
+        .join('\n');
+
+      downloadFile(csvContent, 'tree_volume.csv', 'text/csv;charset=utf-8;');
+    }
+
+    /* -------------------------------------------------------
+       EXPORT: Excel (.xls via HTML table)
+       ------------------------------------------------------- */
+    function exportExcel() {
+      const rows = getExportRows();
+      if (rows.length === 0) { alert('No data to export.'); return; }
+
+      let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">';
+      html += '<head><meta charset="UTF-8"></head><body>';
+      html += '<table border="1"><thead><tr>';
+      html += '<th>Sl.No</th><th>Name</th><th>Width (ft)</th><th>Height (ft)</th><th>Volume (ft³)</th><th>Volume (m³)</th>';
+      html += '</tr></thead><tbody>';
+      rows.forEach(r => {
+        html += '<tr>' + r.map(c => '<td>' + escapeHtml(c) + '</td>').join('') + '</tr>';
+      });
+      html += '</tbody></table></body></html>';
+
+      downloadFile(html, 'tree_volume.xls', 'application/vnd.ms-excel;charset=utf-8;');
+    }
+
+    /* ---- Helpers ---- */
+    function downloadFile(content, filename, mimeType) {
+      const blob = new Blob(['\uFEFF' + content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    /* Initialize: load saved data or start with one empty row */
+    loadData();
+
+    /* Register Service Worker for PWA / offline support */
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(reg => console.log('SW registered:', reg.scope))
+        .catch(err => console.warn('SW registration failed:', err));
+    }
+  </script>
+
+</body>
+
+</html>
